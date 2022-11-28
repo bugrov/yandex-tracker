@@ -1,0 +1,24 @@
+{
+    "name": "bugrov/yandex-tracker",
+    "description": "PHP SDK для работы с Яндекс.Трекером",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "BugrovWeb\\YandexTracker\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "bugrov",
+            "email": "a.bugrov@intensa.ru"
+        }
+    ],
+    "require": {
+        "guzzlehttp/guzzle": "7.0",
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "symfony/var-dumper": "^5.4"
+    }
+}
