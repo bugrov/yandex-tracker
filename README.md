@@ -5,13 +5,13 @@
 Поддерживается установка с помощью [менеджера пакетов](https://getcomposer.org).
 
 ```
-$ composer require bugrov/yandex-tracker dev-main
+$ composer require bugrov/yandex-tracker dev-master
 ```
 
 Или
 
 ```
-$ php composer.phar require bugrov/yandex-tracker dev-main
+$ php composer.phar require bugrov/yandex-tracker dev-master
 ```
 
 ## Получение токена
