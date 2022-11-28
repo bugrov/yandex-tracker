@@ -1348,6 +1348,7 @@ $api->checklist()->edit(string $issueId, string $checklistId)
 ```
 
 `$issueId` - Идентификатор или ключ задачи.	Строка
+
 `$checklistId` - Идентификатор пункта чеклиста.	Строка
 
 ___
