@@ -1,6 +1,7 @@
 {
     "name": "bugrov/yandex-tracker",
     "description": "PHP SDK для работы с Яндекс.Трекером",
+    "keywords": ["yandex", "tracker", "яндекс", "трекер", "yandex tracker", "яндекс трекер", "php", "api", "sdk", "client"],
     "type": "library",
     "license": "MIT",
     "autoload": {
