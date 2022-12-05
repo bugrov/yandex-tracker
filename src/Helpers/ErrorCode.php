@@ -8,7 +8,7 @@ namespace BugrovWeb\YandexTracker\Helpers;
 class ErrorCode
 {
     /**
-     * Возвращает стандартное сообщение об ошибки по HTTP-коду
+     * Возвращает стандартное сообщение об ошибке по HTTP-коду
      *
      * @param int $code HTTP-код ошибки
      * @return string
