@@ -121,6 +121,7 @@
     3. [Получить информацию о пользователе](#Получить-информацию-о-пользователе)
 21. [Встроенные хелперы](#Встроенные-хелперы)
     1. [TimeManager](#TimeManager)
+    2. [QueryFilter](#QueryFilter)
 
 ## Установка
 
@@ -777,6 +778,8 @@ public function query(string $filter)
 |-------------------------------------------------------------------------------------|------------|--------------|
 | Фильтр на [языке запросов](https://cloud.yandex.ru/docs/tracker/user/query-filter). | Строка     | Нет          |
 
+Вы можете использовать [конструктор](#QueryFilter) для создания query-запроса на языке запросов Яндекс.Трекера.
+
 ```php
 public function send()
 ```
@@ -910,6 +913,8 @@ public function query(string $filter)
 | Описание                                                                            | Тип данных | Обязательный |
 |-------------------------------------------------------------------------------------|------------|--------------|
 | Фильтр на [языке запросов](https://cloud.yandex.ru/docs/tracker/user/query-filter). | Строка     | Нет          |
+
+Вы можете использовать [конструктор](#QueryFilter) для создания query-запроса на языке запросов Яндекс.Трекера.
 
 ```php
 public function keys(string $issueKeys)
@@ -3415,6 +3420,8 @@ public function query(string $query)
 |------------------------------------------------------------------------------------------------------------------------------------------------------------|------------|-----------------------------|
 | Строка запроса фильтрации задач, для которых сработает автодействие. Используется [язык запросов](https://cloud.yandex.ru/docs/tracker/user/query-filter). | Строка     | Да, если не указан `filter` |
 
+Вы можете использовать [конструктор](#QueryFilter) для создания query-запроса на языке запросов Яндекс.Трекера.
+
 ```php
 public function actions(array $issueActions)
 ```
@@ -3823,6 +3830,8 @@ public function query(string $filter)
 |--------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------|--------------|
 | Параметры фильтра, с помощью которого отбираются задачи для доски. Параметры задаются на [языке запросов](https://cloud.yandex.ru/docs/tracker/user/query-filter). | Строка     | Нет          |
 
+Вы можете использовать [конструктор](#QueryFilter) для создания query-запроса на языке запросов Яндекс.Трекера.
+
 ```php
 public function useRanking(bool $use)
 ```
@@ -3957,6 +3966,8 @@ public function query(string $filter)
 | Описание                                                                                                                                                           | Тип данных | Обязательный |
 |--------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------|--------------|
 | Параметры фильтра, с помощью которого отбираются задачи для доски. Параметры задаются на [языке запросов](https://cloud.yandex.ru/docs/tracker/user/query-filter). | Строка     | Нет          |
+
+Вы можете использовать [конструктор](#QueryFilter) для создания query-запроса на языке запросов Яндекс.Трекера.
 
 ```php
 public function useRanking(bool $use)
@@ -6759,7 +6770,8 @@ try {
 
 ### TimeManager
 
-Конструктор для перевода времени в строку формата ISO 8601. При передаче в конструктор времени, передавайте что-то одно:
+Конструктор для перевода времени в строку формата ISO 8601. При передаче в конструктор параметров, используйте что-то
+одно:
 только недели / год, месяц, день, минуты, секунды
 
 ___
@@ -6834,4 +6846,285 @@ try {
 } catch (\Exception $exception) {
     var_dump($exception->getMessage());
 }
+```
+
+### QueryFilter
+
+Конструктор, предоставляющий удобный интерфейс для создания запросов на языке Яндекс.Трекера.
+
+#### Метод where
+
+Вы можете использовать метод `where` конструктора запросов, чтобы добавить запрос вида `"параметр": "значение"` через
+логическое **AND**. Самый простой вариант вызова метода требует 3 аргумента. 1-й - название параметра, 2-й - любой из
+доступных операторов сравнения (`!`, `>`, `<`, `>=`, `<=`, `#`, `~`), 3-й - значение для сравнения. В качестве значения
+вы также можете передавать функции времени: `now()`, `today()`, `week()`, `month()`, `quarter()`, `year()`. Например,
+запрос вида `"Comment": #"Хорошая работа, Олег" AND "Story Points": >=5` может быть получен следующим вызовом:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->where('Comment', '#', 'Хорошая работа, Олег')
+    ->where('Story Points', '>=', 5)
+    ->toString();
+
+echo $res;
+```
+
+_Результат_
+
+```
+"Comment": #"Хорошая работа, Олег" AND "Story Points": >=5
+```
+
+Если оператор в запросе не требуется, просто передайте 2 аргумента: 1-й - название параметра, 2-й - значение параметра:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->where('Author', 'user1234@')
+    ->where('Followers', 'user9876@')
+    ->toString();
+
+echo $res;
+```
+
+_Результат_
+
+```
+"Author": "user1234@" AND "Followers": "user9876@"
+```
+
+Также можно передать массив условий в метод `where`. Каждый элемент массива должен быть массивом, содержащим два/три
+аргумента, передаваемых методу `where`:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->where([
+        ['Comment', '#', 'Хорошая работа, Олег'],
+        ['Story Points', '>=', 5]
+    ])
+    ->toString();
+
+echo $res;
+```
+
+_Результат_
+
+```
+("Comment": #"Хорошая работа, Олег" AND "Story Points": >=5)
+```
+
+Для фильтра по нескольким значениям одного параметра вида `"параметр": "значение1", "значение2", "значение3"`, передайте
+в функцию `where` 2 аргумента: 1-й - название параметра, 2-й - массив значений параметра. Например:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->where('Author', ['Иванов Иван', 'Вася Пупкин'])
+    ->toString();
+
+echo $res;
+```
+
+_Результат_
+
+```
+"Author": "Иванов Иван", "Вася Пупкин"
+```
+
+#### Метод orWhere
+
+Метод `where` объединяет части запроса логическим оператором **AND**, в свою очередь метод `orWhere` присоединяет части
+запроса с помощью оператора **OR**. Метод `orWhere` работает также, как и `where`:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->where('Author', '!', 'Иван Иванов')
+    ->orWhere('Original Estimate', '5d 2h 30m')
+    ->toString();
+
+echo $res;
+```
+
+_Результат_
+
+```
+"Author": !"Иван Иванов" OR "Original Estimate": "5d 2h 30m"
+```
+
+Если вам нужно сгруппировать условие **OR** в круглые скобки, вы можете передать анонимную функцию в качестве первого
+аргумента метода `orWhere`:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->where('Author', 'Иван Иванов')
+    ->orWhere(function ($query) {
+        $query->where('Author', 'Вася Пупкин')
+            ->where('Created', '>', 'now()-12h');
+    })
+    ->toString();
+
+echo $res;
+```
+
+_Результат_
+
+```
+"Author": "Иван Иванов" OR ("Author": "Вася Пупкин" AND "Created": >now()-12h)
+```
+
+#### Метод whereIsBetween/orWhereIsBetween
+
+Методы добавляют запрос с интервалом значений (через **AND** или **OR** соответственно),
+например `параметр: число1 .. число2`. Пример вызова:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->whereIsBetween('Created', ['2017-01-01', '2017-01-30'])
+    ->toString();
+
+echo $res;
+```
+
+_Результат_
+
+```
+"Created": 2017-01-01 .. 2017-01-30
+```
+
+#### Метод whereIsEmpty/whereIsNotEmpty/orWhereIsEmpty/orWhereIsNotEmpty
+
+Добавляет запрос вида `параметр: empty()`/`параметр: notEmpty()` через **AND** или **OR**. Методы принимают один
+аргумент - название параметра для запроса. Параметром может быть как одиночное значение, так и массив значений. Если
+передан массив, то для каждого значения будет создан отдельный запрос `empty()`
+/`notEmpty()`: `параметр1: empty() ... параметрN: empty()`. Пример вызова:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->where('Author', 'Иван Иванов')
+    ->whereIsEmpty('Resolution')
+    ->toString();
+// или
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->whereIsEmpty(['Resolution', 'Assignee'])
+    ->toString();
+    
+echo $res;
+```
+
+_Результат_
+
+```
+"Author": "Иван Иванов" AND "Resolution": empty()
+или
+"Resolution": empty() AND "Assignee": empty()
+```
+
+#### Метод whereIsMe/whereIsNotMe/orWhereIsMe/orWhereIsNotMe
+
+Добавляет запрос вида `параметр: me()`/`параметр: !me()` через **AND** или **OR**. Методы принимают один аргумент -
+название параметра для запроса. Параметром может быть как одиночное значение, так и массив значений. Если передан
+массив, то для каждого значения будет создан отдельный запрос `me()`
+/`!me()`: `параметр1: me() ... параметрN: me()`. Пример вызова:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->whereIsMe('Author')
+    ->orWhereIsNotMe(['Assignee', 'Followers'])
+    ->toString();
+    
+echo $res;
+```
+
+_Результат_
+
+```
+"Author": me() OR "Assignee": !me() OR "Followers": !me()
+```
+
+#### Метод whereIsUnresolved/orWhereIsUnresolved
+
+Добавляет запрос вида `параметр: unresolved()` через **AND** или **OR**. Методы принимают один аргумент - название
+параметра для запроса. Параметром может быть как одиночное значение, так и массив значений. Если передан массив, то для
+каждого значения будет создан отдельный запрос `unresolved()`: `параметр1: unresolved() ... параметрN: unresolved()`.
+Пример вызова:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->whereIsUnresolved('Resolution')
+    ->toString();
+    
+echo $res;
+```
+
+_Результат_
+
+```
+"Resolution": unresolved()
+```
+
+#### Метод whereIsGroup/orWhereIsGroup
+
+Добавляет запрос вида `"Параметр": group(value: "Значение")` через **AND** или **OR**. Методы принимают 2 аргумента:
+1-й- название параметра для запроса, 2-й - значение параметра. 1-м параметром может быть как одиночное значение, так и
+массив значений. Если передан массив, то для каждого значения будет создан отдельный
+запрос `"Параметр": group(value: "Значение")`: `параметр1: group(value: "Значение") ... параметрN: group(value: "Значение")`
+. Пример вызова:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->whereIsGroup('Assignee', 'Коммерческий отдел')
+    ->toString();
+    
+echo $res;
+```
+
+_Результат_
+
+```
+"Assignee": group(value: "Коммерческий отдел")
+```
+
+#### Метод whereIsChanged/orWhereIsChanged
+
+Добавляет запрос вида `"Параметр": changed(from: "from" to: "to", by: "by" date: "date")` через **AND** или **OR**.
+Методы принимают 2 аргумента: 1-й - название параметра для запроса, 2-й - массив элементов. Каждый элемент массива
+должен быть массивом вида `ключ` => `значение`, где `ключ` может быть одним из: `from`, `to`, `by`, `date`. Значением
+ключа `date` может быть как единичное значение, так и массив из двух значений (интервал дат). Пример вызова:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->whereIsChanged('Status', [
+        'to' => 'В работе',
+        'by' => 'Алиса Литтл',
+        'date' => ['01.09.2017', '15.09.2017'],
+    ])
+    ->toString();
+    
+echo $res;
+```
+
+_Результат_
+
+```
+"Status": changed(to: "В работе" by: "Алиса Литтл" date: 01.09.2017 .. 15.09.2017)
+```
+
+#### Пример сложного запроса
+
+Запрос:
+
+```php
+$res = (new \BugrovWeb\YandexTracker\Helpers\QueryFilter())
+    ->whereIsEmpty('Resolution')
+    ->where('Priority', ['Blocker', 'Critical'])
+    ->where(function ($query) {
+        $query->orWhereIsMe(['Followers', 'Assignee', 'Author']);
+    })
+    ->toString();
+    
+echo $res;
+```
+
+_Результат_
+
+```
+"Resolution": empty() AND "Priority": "Blocker", "Critical" AND ("Followers": me() OR "Assignee": me() OR "Author": me())
 ```

@@ -64,7 +64,7 @@ class QueryFilter
      *
      * @return array
      */
-    public function getWheres()
+    public function getWheres(): array
     {
         return $this->wheres;
     }
@@ -136,7 +136,7 @@ class QueryFilter
      * @param string $boolean
      * @return $this
      */
-    public function whereBetween(string $field, array $values, string $boolean = 'AND')
+    public function whereIsBetween(string $field, array $values, string $boolean = 'AND'): self
     {
         $value = '{{' . join(' .. ', array_slice($values, 0, 2)) . '}}';
 
@@ -150,9 +150,9 @@ class QueryFilter
      * @param array $values
      * @return $this
      */
-    public function orWhereBetween(string $field, array $values): self
+    public function orWhereIsBetween(string $field, array $values): self
     {
-        return $this->whereBetween($field, $values, 'OR');
+        return $this->whereIsBetween($field, $values, 'OR');
     }
 
     /**
@@ -163,7 +163,7 @@ class QueryFilter
      * @param bool $not
      * @return $this
      */
-    public function whereEmpty($fields, string $boolean = 'AND', bool $not = false): self
+    public function whereIsEmpty($fields, string $boolean = 'AND', bool $not = false): self
     {
         $fields = is_array($fields) ? $fields : [$fields];
         $value = $not ? 'notEmpty()' : 'empty()';
@@ -181,9 +181,9 @@ class QueryFilter
      * @param array|string $field
      * @return $this
      */
-    public function orWhereEmpty($field): self
+    public function orWhereIsEmpty($field): self
     {
-        return $this->whereEmpty($field, 'OR');
+        return $this->whereIsEmpty($field, 'OR');
     }
 
     /**
@@ -193,9 +193,9 @@ class QueryFilter
      * @param string $boolean
      * @return $this
      */
-    public function whereNotEmpty($fields, string $boolean = 'AND'): self
+    public function whereIsNotEmpty($fields, string $boolean = 'AND'): self
     {
-        return $this->whereEmpty($fields, $boolean, true);
+        return $this->whereIsEmpty($fields, $boolean, true);
     }
 
     /**
@@ -204,9 +204,9 @@ class QueryFilter
      * @param array|string $field
      * @return $this
      */
-    public function orWhereNotEmpty($field): self
+    public function orWhereIsNotEmpty($field): self
     {
-        return $this->whereNotEmpty($field, 'OR');
+        return $this->whereIsNotEmpty($field, 'OR');
     }
 
     /**
@@ -217,7 +217,7 @@ class QueryFilter
      * @param bool $not
      * @return $this
      */
-    public function whereMe($fields, string $boolean = 'AND', bool $not = false): self
+    public function whereIsMe($fields, string $boolean = 'AND', bool $not = false): self
     {
         $fields = is_array($fields) ? $fields : [$fields];
         $value = $not ? '!me()' : 'me()';
@@ -235,9 +235,9 @@ class QueryFilter
      * @param array|string $field
      * @return $this
      */
-    public function orWhereMe($field): self
+    public function orWhereIsMe($field): self
     {
-        return $this->whereMe($field, 'OR');
+        return $this->whereIsMe($field, 'OR');
     }
 
     /**
@@ -247,9 +247,9 @@ class QueryFilter
      * @param string $boolean
      * @return $this
      */
-    public function whereNotMe($fields, string $boolean = 'AND'): self
+    public function whereIsNotMe($fields, string $boolean = 'AND'): self
     {
-        return $this->whereMe($fields, $boolean, true);
+        return $this->whereIsMe($fields, $boolean, true);
     }
 
     /**
@@ -258,9 +258,9 @@ class QueryFilter
      * @param array|string $field
      * @return $this
      */
-    public function orWhereNotMe($field): self
+    public function orWhereIsNotMe($field): self
     {
-        return $this->whereNotMe($field, 'OR');
+        return $this->whereIsNotMe($field, 'OR');
     }
 
     /**
@@ -270,7 +270,7 @@ class QueryFilter
      * @param string $boolean
      * @return $this
      */
-    public function whereUnresolved($fields, string $boolean = 'AND'): self
+    public function whereIsUnresolved($fields, string $boolean = 'AND'): self
     {
         $fields = is_array($fields) ? $fields : [$fields];
 
@@ -287,20 +287,20 @@ class QueryFilter
      * @param array|string $field
      * @return $this
      */
-    public function orWhereUnresolved($field): self
+    public function orWhereIsUnresolved($field): self
     {
-        return $this->whereUnresolved($field, 'OR');
+        return $this->whereIsUnresolved($field, 'OR');
     }
 
     /**
-     * Добавляет запрос вида group(value: "Параметр": "Значение")
+     * Добавляет запрос вида "Параметр": group(value: "Значение")
      *
      * @param array|string $fields
      * @param string $value
      * @param string $boolean
      * @return $this
      */
-    public function whereGroup($fields, string $value, string $boolean = 'AND'): self
+    public function whereIsGroup($fields, string $value, string $boolean = 'AND'): self
     {
         $fields = is_array($fields) ? $fields : [$fields];
         $valuePrepared = '{{group(value: "' . str_replace('"', '\"', $value) . '")}}';
@@ -313,26 +313,26 @@ class QueryFilter
     }
 
     /**
-     * Добавляет запрос вида group(value: "Параметр": "Значение") через ИЛИ
+     * Добавляет запрос вида "Параметр": group(value: "Значение") через ИЛИ
      *
      * @param array|string $field
      * @param string $value
      * @return $this
      */
-    public function orWhereGroup($field, string $value): self
+    public function orWhereIsGroup($field, string $value): self
     {
-        return $this->whereGroup($field, $value, 'OR');
+        return $this->whereIsGroup($field, $value, 'OR');
     }
 
     /**
-     * Добавляет запрос вида changed(from: "from" to: "to", by: "by" date: "date")
+     * Добавляет запрос вида "Параметр": changed(from: "from" to: "to", by: "by" date: "date")
      *
      * @param string $field
      * @param array $values
      * @param string $boolean
      * @return $this
      */
-    public function whereChanged(string $field, array $values, string $boolean = 'AND'): self
+    public function whereIsChanged(string $field, array $values, string $boolean = 'AND'): self
     {
         $valuePrepared = '{{changed(';
         $valueParts = [];
@@ -355,15 +355,15 @@ class QueryFilter
     }
 
     /**
-     * Добавляет запрос вида changed(from: "from" to: "to", by: "by" date: "date") через ИЛИ
+     * Добавляет запрос вида "Параметр": changed(from: "from" to: "to", by: "by" date: "date") через ИЛИ
      *
      * @param string $field
      * @param array $values
      * @return $this
      */
-    public function orWhereChanged(string $field, array $values): self
+    public function orWhereIsChanged(string $field, array $values): self
     {
-        return $this->whereChanged($field, $values, 'OR');
+        return $this->whereIsChanged($field, $values, 'OR');
     }
 
     /**
@@ -512,7 +512,7 @@ class QueryFilter
     }
 
     /**
-     * Переделать у значения кавычки " на \"
+     * Заменить у значения кавычки c " на \"
      *
      * @param mixed $value
      * @return array|mixed
@@ -525,7 +525,7 @@ class QueryFilter
     }
 
     /**
-     * Проверка что значение содержит функцию из Яндекс.Трекера
+     * Проверяет, что значение содержит функцию из Яндекс.Трекера
      *
      * @param mixed $value
      * @return bool
