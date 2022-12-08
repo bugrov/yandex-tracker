@@ -2,339 +2,557 @@
 
 namespace BugrovWeb\YandexTracker\Helpers;
 
+/**
+ * Конструктор query-запросов Яндекс.Трекера
+ *
+ * @see https://cloud.yandex.ru/docs/tracker/user/query-filter
+ */
 class QueryFilter
 {
     /**
-     * Логическое И
+     * @var array Массив всех частей query
      */
-    const LOGIC_AND = 'AND';
+    protected array $wheres;
 
     /**
-     * Логическое ИЛИ
+     * @var array Массив с сортировкой
      */
-    const LOGIC_OR = 'OR';
+    protected array $sortBy;
 
     /**
-     * Логическое отрицание
+     * @var array|string[] Query-функции
      */
-    const PREFIX_NEGATE = '!';
-
-    /**
-     * changed(from:)
-     */
-    const CHANGED_FROM = 'from';
-
-    /**
-     * changed(to:)
-     */
-    const CHANGED_TO = 'to';
-
-    /**
-     * changed(by:)
-     */
-    const CHANGED_BY = 'by';
-
-    /**
-     * changed(date:)
-     */
-    const CHANGED_DATE = 'date';
-
-    protected array $logicPrefixes = ['#', '!', '~', '>', '<', '>=', '<='];
-
-    /**
-     * @var string Строка фильтра на языке запросов Яндекс.Трекера
-     */
-    protected string $queryString;
+    protected array $queryFunctions = [
+        'empty()',
+        'notEmpty()',
+        'me()',
+        'now()',
+        'today()',
+        'week()',
+        'month()',
+        'quarter()',
+        'year()',
+        'unresolved()',
+    ];
 
     public function __construct()
     {
-        $this->queryString = '';
+        $this->wheres = [];
+        $this->sortBy = [];
     }
 
     /**
-     * Возвращает собранную строку фильтра
-     *
-     * @return string
+     * @return $this
      */
-    public function toString(): string
+    public function newQuery(): self
     {
-        return trim(preg_replace(['/\s\s+/', '/\(\s/', '/\s\)/',], [' ', '(', ')'], $this->queryString));
+        return new static();
     }
 
     /**
-     * Начало условия в скобках
+     * Создает новый вложенный query
      *
      * @return $this
      */
-    public function conditionGroup(): self
+    public function forNestedWhere(): self
     {
-        $this->appendQuery('(');
-
-        return $this;
+        return $this->newQuery();
     }
 
     /**
-     * Конец условия в скобках
+     * Получает текущий массив частей query
      *
-     * @return $this
+     * @return array
      */
-    public function endConditionGroup(): self
+    public function getWheres()
     {
-        $this->appendQuery(')');
-
-        return $this;
+        return $this->wheres;
     }
 
     /**
-     * Вставка логического ИЛИ
+     * Добавляет базовый запрос
      *
+     * @param \Closure|string|array $field
+     * @param mixed $operator
+     * @param mixed $value
+     * @param string $boolean
      * @return $this
      */
-    public function or(): self
+    public function where($field, $operator = null, $value = null, string $boolean = 'AND'): self
     {
-        $this->appendQuery(self::LOGIC_OR);
+        if (is_array($field)) {
+            return $this->addArrayOfWheres($field, $boolean);
+        }
+        
+        [$value, $operator] = $this->prepareValueAndOperator(
+            $value, $operator, func_num_args() === 2
+        );
 
-        return $this;
-    }
-
-    /**
-     * Простой фильтр
-     *
-     * @param string $field Параметр
-     * @param string|array $values Значение(я)
-     * @return $this
-     */
-    public function query(string $field, $values): self
-    {
-        $queryPart = '"' . $field . '":';
-
-        if (is_array($values)) {
-            $queryParts = [];
-
-            foreach ($values as $value) {
-                $queryParts[] = $this->prepareValue($value);
-            }
-
-            $queryPart .= ' ' . join(', ', $queryParts);
-
-            unset($queryParts);
-        } else {
-            $queryPart .= ' ' . $this->prepareValue($values);
+        if ($field instanceof \Closure && is_null($operator)) {
+            return $this->nestedWhere($field, $boolean);
         }
 
-        $this->appendQuery($queryPart);
+        if (is_array($value) && (is_null($operator) || $operator === '')) {
+            foreach ($value as &$valuePart) {
+                $valuePart = $this->prepareValue($valuePart);
+            }
+
+            $value = join(', ', $value);
+        } else {
+            $value = $this->prepareValue($value);
+        }
+
+        $type = 'Basic';
+
+        $this->wheres[] = compact(
+            'type', 'field', 'operator', 'value', 'boolean'
+        );
 
         return $this;
     }
 
     /**
-     * Фильтр для интервала времени/чисел
+     * Добавляет базовый запрос через ИЛИ
      *
-     * @param string $field Параметр
-     * @param $from -От
-     * @param $to -До
+     * @param \Closure|string|array $field
+     * @param mixed $operator
+     * @param mixed $value
      * @return $this
      */
-    public function queryRange(string $field, $from, $to): self
+    public function orWhere($field, $operator = null, $value = null): self
     {
-        $this->appendQuery('"' . $field . '": ' . $from . '..' . $to);
+        [$value, $operator] = $this->prepareValueAndOperator(
+            $value, $operator, func_num_args() === 2
+        );
+
+        return $this->where($field, $operator, $value, 'OR');
+    }
+
+    /**
+     * Добавляет запрос с интервалом значений $a .. $b
+     *
+     * @param string $field
+     * @param array $values
+     * @param string $boolean
+     * @return $this
+     */
+    public function whereBetween(string $field, array $values, string $boolean = 'AND')
+    {
+        $value = '{{' . join(' .. ', array_slice($values, 0, 2)) . '}}';
+
+        return $this->where($field, null, $value, $boolean);
+    }
+
+    /**
+     * Добавляет запрос с интервалом значений $a .. $b через ИЛИ
+     *
+     * @param string $field
+     * @param array $values
+     * @return $this
+     */
+    public function orWhereBetween(string $field, array $values): self
+    {
+        return $this->whereBetween($field, $values, 'OR');
+    }
+
+    /**
+     * Добавляет запрос с empty()
+     *
+     * @param array|string $fields
+     * @param string $boolean
+     * @param bool $not
+     * @return $this
+     */
+    public function whereEmpty($fields, string $boolean = 'AND', bool $not = false): self
+    {
+        $fields = is_array($fields) ? $fields : [$fields];
+        $value = $not ? 'notEmpty()' : 'empty()';
+
+        foreach ($fields as $field) {
+            $this->where($field, null, $value, $boolean);
+        }
 
         return $this;
     }
 
     /**
-     * Фильтр для параметров с указанием функции времени
+     * Добавляет запрос с empty() через ИЛИ
      *
-     * @param string $field Параметр
-     * @param string $dateFunction Функция времени (now(), today() и т.д.)
+     * @param array|string $field
      * @return $this
      */
-    public function date(string $field, string $dateFunction): self
+    public function orWhereEmpty($field): self
     {
-        $this->appendQuery('"' . $field . '": ' . $this->prepareValue($dateFunction, false));
+        return $this->whereEmpty($field, 'OR');
+    }
+
+    /**
+     * Добавляет запрос с notEmpty()
+     *
+     * @param array|string $fields
+     * @param string $boolean
+     * @return $this
+     */
+    public function whereNotEmpty($fields, string $boolean = 'AND'): self
+    {
+        return $this->whereEmpty($fields, $boolean, true);
+    }
+
+    /**
+     * Добавляет запрос с notEmpty() через ИЛИ
+     *
+     * @param array|string $field
+     * @return $this
+     */
+    public function orWhereNotEmpty($field): self
+    {
+        return $this->whereNotEmpty($field, 'OR');
+    }
+
+    /**
+     * Добавляет запрос с me()
+     *
+     * @param array|string $fields
+     * @param string $boolean
+     * @param bool $not
+     * @return $this
+     */
+    public function whereMe($fields, string $boolean = 'AND', bool $not = false): self
+    {
+        $fields = is_array($fields) ? $fields : [$fields];
+        $value = $not ? '!me()' : 'me()';
+
+        foreach ($fields as $field) {
+            $this->where($field, null, $value, $boolean);
+        }
 
         return $this;
     }
 
     /**
-     * Фильтр для me()
+     * Добавляет запрос с me() через ИЛИ
      *
-     * @param string $field Параметр
-     * @param string|string[]|null $additionalValues Дополнительные параметры
+     * @param array|string $field
      * @return $this
      */
-    public function me(string $field, $additionalValues = null): self
+    public function orWhereMe($field): self
     {
-        $firstCharNegate = substr($field, 0, 1) === self::PREFIX_NEGATE;
+        return $this->whereMe($field, 'OR');
+    }
 
-        $queryPart = '"' . ($firstCharNegate ? substr($field, 1) : $field) . '": ' .
-            ($firstCharNegate ? self::PREFIX_NEGATE : '') . 'me()';
+    /**
+     * Добавляет запрос с !me()
+     *
+     * @param array|string $fields
+     * @param string $boolean
+     * @return $this
+     */
+    public function whereNotMe($fields, string $boolean = 'AND'): self
+    {
+        return $this->whereMe($fields, $boolean, true);
+    }
 
-        if (!empty($additionalValues)) {
-            if (is_array($additionalValues)) {
-                $queryParts = [];
+    /**
+     * Добавляет запрос с !me() через ИЛИ
+     *
+     * @param array|string $field
+     * @return $this
+     */
+    public function orWhereNotMe($field): self
+    {
+        return $this->whereNotMe($field, 'OR');
+    }
 
-                foreach ($additionalValues as $value) {
-                    $queryParts[] = $this->prepareValue($value);
+    /**
+     * Добавляет запрос с unresolved()
+     *
+     * @param array|string $fields
+     * @param string $boolean
+     * @return $this
+     */
+    public function whereUnresolved($fields, string $boolean = 'AND'): self
+    {
+        $fields = is_array($fields) ? $fields : [$fields];
+
+        foreach ($fields as $field) {
+            $this->where($field, null, 'unresolved()', $boolean);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Добавляет запрос с unresolved() через ИЛИ
+     *
+     * @param array|string $field
+     * @return $this
+     */
+    public function orWhereUnresolved($field): self
+    {
+        return $this->whereUnresolved($field, 'OR');
+    }
+
+    /**
+     * Добавляет запрос вида group(value: "Параметр": "Значение")
+     *
+     * @param array|string $fields
+     * @param string $value
+     * @param string $boolean
+     * @return $this
+     */
+    public function whereGroup($fields, string $value, string $boolean = 'AND'): self
+    {
+        $fields = is_array($fields) ? $fields : [$fields];
+        $valuePrepared = '{{group(value: "' . str_replace('"', '\"', $value) . '")}}';
+
+        foreach ($fields as $field) {
+            $this->where($field, null, $valuePrepared, $boolean);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Добавляет запрос вида group(value: "Параметр": "Значение") через ИЛИ
+     *
+     * @param array|string $field
+     * @param string $value
+     * @return $this
+     */
+    public function orWhereGroup($field, string $value): self
+    {
+        return $this->whereGroup($field, $value, 'OR');
+    }
+
+    /**
+     * Добавляет запрос вида changed(from: "from" to: "to", by: "by" date: "date")
+     *
+     * @param string $field
+     * @param array $values
+     * @param string $boolean
+     * @return $this
+     */
+    public function whereChanged(string $field, array $values, string $boolean = 'AND'): self
+    {
+        $valuePrepared = '{{changed(';
+        $valueParts = [];
+
+        foreach ($values as $key => $var) {
+            if ($key === 'date') {
+                if (is_array($var)) {
+                    $var = join(' .. ', array_slice($var, 0, 2));
                 }
 
-                $queryPart .= ', ' . join(', ', $queryParts);
-
-                unset($queryParts);
+                $valueParts[] = $key . ': ' . $var;
             } else {
-                $queryPart .= ', "' . $additionalValues . '"';
+                $valueParts[] = $key . ': "'  . str_replace('"', '\"', $var) . '"';
             }
         }
 
-        $this->appendQuery($queryPart);
+        $valuePrepared .= join(' ', $valueParts) . ')}}';
 
-        return $this;
+        return $this->where($field, null, $valuePrepared, $boolean);
     }
 
     /**
-     * Фильтр для empty()
+     * Добавляет запрос вида changed(from: "from" to: "to", by: "by" date: "date") через ИЛИ
      *
-     * @param string $field Параметр
+     * @param string $field
+     * @param array $values
      * @return $this
      */
-    public function empty(string $field): self
+    public function orWhereChanged(string $field, array $values): self
     {
-        $this->appendQuery('"' . $field . '": empty()');
-
-        return $this;
+        return $this->whereChanged($field, $values, 'OR');
     }
 
     /**
-     * Фильтр для notEmpty()
+     * Добавляет в запрос вложенный запрос
      *
-     * @param string $field Параметр
+     * @param \Closure $callback
+     * @param string $boolean
      * @return $this
      */
-    public function notEmpty(string $field): self
+    public function nestedWhere(\Closure $callback, string $boolean = 'AND'): self
     {
-        $this->appendQuery('"' . $field . '": notEmpty()');
+        call_user_func($callback, $query = $this->forNestedWhere());
 
-        return $this;
+        return $this->addNestedWhereQuery($query->getWheres(), $boolean);
     }
 
     /**
-     * Фильтр для unresolved()
+     * Заполняет текущий конструктор значениями из вложенного запроса
      *
-     * @param string $field Параметр
+     * @param array $query
+     * @param string $boolean
      * @return $this
      */
-    public function unresolved(string $field): self
+    public function addNestedWhereQuery(array $query, string $boolean = 'AND'): self
     {
-        $this->appendQuery('"' . $field . '": unresolved()');
+        if (count($query)) {
+            $type = 'Nested';
 
-        return $this;
-    }
-
-    /**
-     * Фильтр для group()
-     *
-     * @param string $field Параметр
-     * @param string $value Значение
-     * @return $this
-     */
-    public function group(string $field, string $value): self
-    {
-        $this->appendQuery('"' . $field . '": group(value: ' . $this->prepareValue($value) . ')');
-
-        return $this;
-    }
-
-    /**
-     * Фильтр для changed()
-     *
-     * @param string $field Параметр
-     * @param array $changes Массив с параметрами from, to, by, date
-     * @return $this
-     */
-    public function changed(string $field, array $changes): self
-    {
-        $queryPart = '"' . $field . '": changed(';
-
-        foreach ($changes as $key => $value) {
-            switch ($key) {
-                case self::CHANGED_FROM:
-                case self::CHANGED_TO:
-                case self::CHANGED_BY:
-                    $queryPart .= ' ' . $key . ': ' . $this->prepareValue($value);
-                    break;
-                case self::CHANGED_DATE:
-                    $queryPart .= ' ' . self::CHANGED_DATE . ': ' . $this->prepareValue($value, false);
-                    break;
-                default:
-                    break;
-            }
+            $this->wheres[] = compact('type', 'query', 'boolean');
         }
 
-        $queryPart .= ')';
-
-        $this->appendQuery($queryPart);
-
         return $this;
     }
 
     /**
-     * Подготовка значения для фильтра
+     * Добавляет рекурсивно запросы на основе массива
      *
-     * @param string $value Строка
-     * @param bool $quotes Кавычки
-     * @return string
+     * @param array $field
+     * @param string $boolean
+     * @param string $method
+     * @return $this
      */
-    protected function prepareValue(string $value, bool $quotes = true): string
+    public function addArrayOfWheres(array $field, string $boolean, string $method = 'where'): self
     {
-        $value = str_replace('"', '\"', $value);
-        $prefix = $this->checkPrefix($value);
-        $q = $quotes ? '"' : '';
-
-        return $prefix ? substr($value, 0, $prefix) . $q . substr($value, $prefix) . $q : $q . $value . $q;
+        return $this->nestedWhere(function ($query) use ($field, $method, $boolean) {
+            foreach ($field as $key => $value) {
+                if (is_numeric($key) && is_array($value)) {
+                    $query->{$method}(...array_values($value));
+                } else {
+                    $query->$method($key, '', $value, $boolean);
+                }
+            }
+        }, $boolean);
     }
 
     /**
-     * Проверяет строку на наличие логического префикса
+     * Устанавливает сортировку запроса
      *
-     * @param string $value Строка
-     * @return int
-     */
-    protected function checkPrefix(string $value): int
-    {
-        $firstChar = substr($value, 0, 1);
-        $firstTwoChar = substr($value, 0, 2);
-
-        return in_array($firstTwoChar, $this->logicPrefixes) ? 2 : (in_array($firstChar, $this->logicPrefixes) ? 1 : 0);
-    }
-
-    /**
-     * Сортировка фильтра
-     *
-     * @param string|string[] $field Поле(я) сортировки
+     * @param array|string $field
      * @return $this
      */
     public function sortBy($field): self
     {
-        $queryPart = '"Sort By": ';
-
-        if (is_array($field)) {
-            $queryPart .= join(', ', $field);
-        } else {
-            $queryPart .= $field;
-        }
-
-        $this->appendQuery($queryPart);
+        $field = is_array($field) ? $field : [$field];
+        $this->sortBy = array_merge($this->sortBy, $field);
 
         return $this;
     }
 
     /**
-     * Конкатенация queryString
+     * Возвращает итоговую строку запроса
      *
-     * @param string $query Строка
+     * @return string|null
      */
-    protected function appendQuery(string $query)
+    public function toString(): ?string
     {
-        $this->queryString .= " $query";
+        $queryString = '';
+
+        $basicQueries = array_values(array_filter($this->wheres, function ($query) {
+            return $query['type'] === 'Basic';
+        }));
+
+        $nestedQueries = array_values(array_filter($this->wheres, function ($query) {
+            return $query['type'] === 'Nested';
+        }));
+
+        foreach ($basicQueries as $bIndex => $basicQuery) {
+            $queryString .= $this->generateString($basicQuery, $bIndex !== 0);
+        }
+
+        foreach ($nestedQueries as $nestedQuery) {
+            $queryString .= ' ' . $nestedQuery['boolean'] . ' (';
+
+            foreach ($nestedQuery['query'] as $index => $query) {
+                $queryString .= $this->generateString($query, $index !== 0);
+            }
+
+            $queryString .= ')';
+        }
+
+        if (!empty($this->sortBy)) {
+            $queryString .= ' "Sort By": ' . join(', ', $this->sortBy);
+        }
+
+        return $this->finalPrepare($queryString) ?: '';
+    }
+
+    /**
+     * Финальная подготовка строки запроса: trim и обрезка лишних логических операторов
+     *
+     * @param string $queryString
+     * @return string|null
+     */
+    protected function finalPrepare(string $queryString): ?string
+    {
+        return preg_replace(['/^\s?AND\s?/', '/^\s?OR\s?/'], '', trim($queryString));
+    }
+
+    /**
+     * Генерация части строки запроса
+     *
+     * @param array $query
+     * @param bool $firstBoolean
+     * @return string
+     */
+    protected function generateString(array $query, bool $firstBoolean = true): string
+    {
+        return ($firstBoolean ? ' ' . $query['boolean'] . ' ' : '') . '"' . $query['field'] . '": ' . ($query['operator'] ?: '') . $query['value'];
+    }
+
+    /**
+     * Подготовка отдельных значений каждого массива $this->wheres
+     *
+     * @param mixed $value
+     * @return string
+     */
+    protected function prepareValue($value): string
+    {
+        $replacedValue = $this->notReplaceQuotes($value);
+
+        $addQuotes = !$this->valueHasFunction($value) && !is_int($value) && !$replacedValue;
+
+        $value = $replacedValue ?: str_replace('"', '\"', $value);
+
+        return trim(($addQuotes ? '"' : '') . $value . ($addQuotes ? '"' : ''));
+    }
+
+    /**
+     * Переделать у значения кавычки " на \"
+     *
+     * @param mixed $value
+     * @return array|mixed
+     */
+    protected function notReplaceQuotes($value)
+    {
+        preg_match('/\{\{(.+)\}\}/', $value, $matches);
+
+        return $matches ? $matches[1] : [];
+    }
+
+    /**
+     * Проверка что значение содержит функцию из Яндекс.Трекера
+     *
+     * @param mixed $value
+     * @return bool
+     */
+    protected function valueHasFunction($value): bool
+    {
+        $matches = array_filter($this->queryFunctions, function($var) use ($value) {
+            return strpos($value, $var) !== false;
+        });
+
+        return !empty($matches);
+    }
+
+    /**
+     * Подготавливает значение и оператор для запроса
+     *
+     * @param mixed $value
+     * @param mixed $operator
+     * @param bool $useDefault
+     * @return array
+     */
+    public function prepareValueAndOperator($value, $operator, bool $useDefault = false): array
+    {
+        if ($useDefault) {
+            return [$operator, ''];
+        }
+
+        return [$value, $operator];
     }
 }
