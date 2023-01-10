@@ -3,6 +3,8 @@
 namespace BugrovWeb\YandexTracker\Helpers;
 
 use BugrovWeb\YandexTracker\Exceptions\TrackerBadParamsException;
+use DateInterval;
+use DateTime;
 
 /**
  * Класс-билдер времени в формате PnYnMnDTnHnMnS, PnW в соответствии с ISO 8601
@@ -48,6 +50,10 @@ class TimeManager
      * Разделитель часов, минут, секунд
      */
     const TIME_SEPARATOR = 'T';
+    /**
+     * Кол-во рабочих дней в неделе
+     */
+    const WORKDAYS_IN_WEEK = 5;
 
     /**
      * @param string $name
@@ -84,6 +90,55 @@ class TimeManager
     {
         extract(get_object_vars($this));
         return compact('year', 'month', 'week', 'day', 'hour', 'minute', 'second');
+    }
+
+    /**
+     * Проверяем корректность метки времени. Удаляем у секунд миллисекунды + возращаем недели в РАБОЧИХ днях
+     *
+     * @param string $isoTime Метка времени в ISO 8601
+     *
+     * @throws \Exception
+     */
+    protected function prepareISOTime(string $isoTime): DateInterval
+    {
+        $isoTime = preg_replace('/\.\d+/', '', $isoTime);
+
+        if (preg_match('/^P(\d+)W$/', $isoTime, $matches)) {
+            $isoTime = self::TIME_PREFIX . $matches[1] * self::WORKDAYS_IN_WEEK . 'D';
+        }
+
+        return new DateInterval($isoTime);
+    }
+
+    /**
+     * Возвращает рассчитанное время в удобочитаемом формате
+     *
+     * @param array|string[]|string $isoTime Метка времени в ISO 8601
+     *
+     * @throws \Exception
+     */
+    public function getTotalTime($isoTime): string
+    {
+        $startPoint = new DateTime('00:00');
+        $cloneTime = clone $startPoint;
+
+        if (is_array($isoTime)) {
+            foreach ($isoTime as $time) {
+                $startPoint->add($this->prepareISOTime($time));
+            }
+        } else {
+            $startPoint->add($this->prepareISOTime($isoTime));
+        }
+
+        $days = $cloneTime->diff($startPoint)->d;
+        $hours = $cloneTime->diff($startPoint)->h;
+
+        if ($days) {
+            $hours = $days * 24 + $hours;
+            $startPoint->sub(new DateInterval("P{$days}D"));
+        }
+
+        return "{$hours}h ". $cloneTime->diff($startPoint)->format('%im %ss');
     }
 
     /**
