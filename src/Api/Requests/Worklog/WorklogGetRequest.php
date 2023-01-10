@@ -9,6 +9,9 @@ use BugrovWeb\YandexTracker\Api\Client;
  *
  * @see https://cloud.yandex.ru/docs/tracker/concepts/issues/get-worklog
  *
+ * @method WorklogGetRequest perPage(int $count) Количество записей на странице ответа
+ * @method WorklogGetRequest page(int $pageNumber) Номер страницы ответа
+ *
  * @method WorklogGetRequest createdBy(string $user) Идентификатор или логин автора записи
  * @method WorklogGetRequest createdAt(array|string[] $date) Массив с информацией о времени и дате создания записей. Возможные ключи - from, to
  */
@@ -23,6 +26,14 @@ class WorklogGetRequest extends WorklogRequest
     protected array $data = [
         'queryParams' => [],
         'bodyParams'  => [],
+    ];
+
+    /**
+     * @var array|string[] get-параметры, доступные для запроса
+     */
+    protected array $queryParams = [
+        'perPage',
+        'page',
     ];
 
     /**
