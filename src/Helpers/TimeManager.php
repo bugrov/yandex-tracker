@@ -54,6 +54,10 @@ class TimeManager
      * Кол-во рабочих дней в неделе
      */
     const WORKDAYS_IN_WEEK = 5;
+    /**
+     * Кол-во рабочих часов в дне
+     */
+    const WORKHOURS_IN_DAY = 8;
 
     /**
      * @param string $name
@@ -93,7 +97,8 @@ class TimeManager
     }
 
     /**
-     * Проверяем корректность метки времени. Удаляем у секунд миллисекунды + возращаем недели в РАБОЧИХ днях
+     * Проверяем корректность метки времени.
+     * Удаляем у секунд миллисекунды, возращаем недели в РАБОЧИХ днях, дни в РАБОЧИХ часах
      *
      * @param string $isoTime Метка времени в ISO 8601
      *
@@ -105,6 +110,21 @@ class TimeManager
 
         if (preg_match('/^P(\d+)W$/', $isoTime, $matches)) {
             $isoTime = self::TIME_PREFIX . $matches[1] * self::WORKDAYS_IN_WEEK . 'D';
+        }
+
+        if (preg_match('/(\d+)D/', $isoTime, $dayMatches)) {
+            $hours = $dayMatches[1] * self::WORKHOURS_IN_DAY;
+
+            if (preg_match('/(\d+)H/', $isoTime, $hourMatches)) {
+                $hours += $hourMatches[1];
+                $isoTime = preg_replace('/\d+H/', "{$hours}H", $isoTime);
+            } elseif (strpos($isoTime, self::TIME_SEPARATOR) !== false) {
+                $isoTime = str_replace(self::TIME_SEPARATOR, "T{$hours}H", $isoTime);
+            } else {
+                $isoTime .= "T{$hours}H";
+            }
+
+            $isoTime = preg_replace('/\d+D/', '', $isoTime);
         }
 
         return new DateInterval($isoTime);
@@ -134,10 +154,10 @@ class TimeManager
         $hours = $cloneTime->diff($startPoint)->h;
 
         if ($days) {
-            $hours = $days * 8 + $hours;
-            $startPoint->sub(new DateInterval("P{$days}D"));
+            $hours = $days * 24 + $hours;
         }
 
+        dump($cloneTime->diff($startPoint)->format('%dd %hh %im %ss'));
         return "{$hours}h ". $cloneTime->diff($startPoint)->format('%im %ss');
     }
 
