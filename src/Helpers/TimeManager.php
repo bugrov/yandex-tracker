@@ -134,7 +134,7 @@ class TimeManager
         $hours = $cloneTime->diff($startPoint)->h;
 
         if ($days) {
-            $hours = $days * 24 + $hours;
+            $hours = $days * 8 + $hours;
             $startPoint->sub(new DateInterval("P{$days}D"));
         }
 
