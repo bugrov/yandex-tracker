@@ -140,14 +140,18 @@ class Client
                 $exception = (string) $e->getResponse()->getBody();
                 $exceptionData = json_decode($exception, true);
 
-                $error = $exceptionData['errors'] ? implode('; ', array_map(
-                    function ($v, $k) {
-                        return $k . ': ' . $v;
-                    },
-                    $exceptionData['errors'],
-                    array_keys($exceptionData['errors'])
-                )) : '';
-                $errorMessage = $error ?: $exceptionData['errorMessages'][0] ?: '';
+                $error = is_array($exceptionData) && array_key_exists('errors', $exceptionData)
+                    ?
+                    implode('; ', array_map(
+                        function ($v, $k) {
+                            return $k . ': ' . $v;
+                        },
+                        $exceptionData['errors'],
+                        array_keys($exceptionData['errors'])
+                    ))
+                    : '';
+
+                $errorMessage = $error ?: (is_array($exceptionData) && $exceptionData['errorMessages'][0]) ?: '';
 
                 if (!empty($errorMessage)) {
                     throw new TrackerBadResponseException($errorMessage, $e->getCode());
