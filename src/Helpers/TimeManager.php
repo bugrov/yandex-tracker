@@ -157,7 +157,6 @@ class TimeManager
             $hours = $days * 24 + $hours;
         }
 
-        dump($cloneTime->diff($startPoint)->format('%dd %hh %im %ss'));
         return "{$hours}h ". $cloneTime->diff($startPoint)->format('%im %ss');
     }
 
