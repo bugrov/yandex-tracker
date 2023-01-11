@@ -151,7 +151,12 @@ class Client
                     ))
                     : '';
 
-                $errorMessage = $error ?: (is_array($exceptionData) && $exceptionData['errorMessages'][0]) ?: '';
+                $errorMessage = $error
+                    ?:
+                    ((is_array($exceptionData) && $exceptionData['errorMessages'][0])
+                        ? $exceptionData['errorMessages'][0]
+                        : ''
+                    );
 
                 if (!empty($errorMessage)) {
                     throw new TrackerBadResponseException($errorMessage, $e->getCode());
