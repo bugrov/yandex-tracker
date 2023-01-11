@@ -14,6 +14,7 @@ use BugrovWeb\YandexTracker\Api\Client;
  *
  * @method WorklogGetRequest createdBy(string $user) Идентификатор или логин автора записи
  * @method WorklogGetRequest createdAt(array|string[] $date) Массив с информацией о времени и дате создания записей. Возможные ключи - from, to
+ * @method WorklogGetRequest start(array|string[] $date) Массив с информацией в какой момент стратовала/остановилась запись. Возможные ключи - from, to
  */
 class WorklogGetRequest extends WorklogRequest
 {
@@ -42,6 +43,7 @@ class WorklogGetRequest extends WorklogRequest
     protected array $bodyParams = [
         'createdBy',
         'createdAt',
+        'start',
     ];
 
     public function __construct()
