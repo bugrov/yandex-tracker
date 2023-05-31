@@ -92,8 +92,8 @@ class TimeManager
      */
     protected function getVars(): array
     {
-        extract(get_object_vars($this));
-        return compact('year', 'month', 'week', 'day', 'hour', 'minute', 'second');
+        $vars = get_object_vars($this);
+        return array_diff_key($vars, array_flip(['timeFirstCompliance', 'timeSecondCompliance']));
     }
 
     /**
